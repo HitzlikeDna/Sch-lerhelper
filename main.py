@@ -38,11 +38,13 @@ class GradeRowUI:
         index: int,
         selected_var: tk.IntVar,
         on_select: Callable[[int], None],
+        on_change: Optional[Callable[[], None]] = None,
     ) -> None:
         self.parent = parent
         self.index = index
         self.selected_var = selected_var
         self.on_select = on_select
+        self.on_change = on_change
 
         self.model = GradeRowModel(mNote=[None, None], sNote=[None, None], gNote=None)
 
@@ -88,6 +90,7 @@ class GradeRowUI:
     def _wire_events(self) -> None:
         for var in (self.m1_var, self.m2_var, self.s1_var, self.s2_var):
             var.trace_add("write", lambda *_: self._update_gNote())
+        self.subject_var.trace_add("write", lambda *_: self.on_change() if self.on_change else None)
 
     def _select_me(self) -> None:
         self.on_select(self.index)
@@ -115,11 +118,13 @@ class GradeRowUI:
         if None in (m1, m2, s1, s2):
             self.model.gNote = None
             self.g_var.set("")
-            return
+        else:
+            gNote = compute_gNote([m1, m2], [s1, s2])
+            self.model.gNote = round(gNote, 2)
+            self.g_var.set(f"{self.model.gNote:.2f}")
 
-        gNote = compute_gNote([m1, m2], [s1, s2])
-        self.model.gNote = round(gNote, 2)
-        self.g_var.set(f"{self.model.gNote:.2f}")
+        if self.on_change:
+            self.on_change()
 
 
 class NotenToolApp(ttk.Frame):
@@ -127,6 +132,7 @@ class NotenToolApp(ttk.Frame):
         super().__init__(root)
         self.root = root
 
+        self._loading = False
         self.selected_var = tk.IntVar(value=-1)
         self.rows: list[GradeRowUI] = []
 
@@ -163,7 +169,6 @@ class NotenToolApp(ttk.Frame):
             side="left", padx=8
         )
         ttk.Button(controls, text="Array ausgeben", command=self._print_array).pack(side="left")
-        ttk.Button(controls, text="Speichern", command=self._save_data).pack(side="left", padx=8)
 
         notes_frame = ttk.Frame(self.root)
         notes_frame.pack(fill="x", padx=12, pady=(0, 12))
@@ -179,6 +184,7 @@ class NotenToolApp(ttk.Frame):
             index=len(self.rows),
             selected_var=self.selected_var,
             on_select=self._on_select_row,
+            on_change=self._save_data,
         )
         if data:
             # data format: ["Subject", m1, m2, s1, s2]
@@ -230,6 +236,8 @@ class NotenToolApp(ttk.Frame):
         print(data)
 
     def _save_data(self) -> None:
+        if self._loading:
+            return
         data = []
         for row in self.rows:
             data.append([
@@ -248,6 +256,7 @@ class NotenToolApp(ttk.Frame):
     def _load_data(self) -> None:
         if not os.path.exists("noten.txt"):
             return
+        self._loading = True
         try:
             with open("noten.txt", "r", encoding="utf-8") as f:
                 data = json.load(f)
@@ -255,6 +264,8 @@ class NotenToolApp(ttk.Frame):
                 self._add_row(row_data)
         except Exception as e:
             print(f"Fehler beim Laden: {e}")
+        finally:
+            self._loading = False
 
 
 def main() -> None:
