@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Optional, Callable
+import json
+import os
 
 import tkinter as tk
 from tkinter import ttk
@@ -129,7 +131,9 @@ class NotenToolApp(ttk.Frame):
         self.rows: list[GradeRowUI] = []
 
         self._build_ui()
-        self._add_row()
+        self._load_data()
+        if not self.rows:
+            self._add_row()
 
     def _build_ui(self) -> None:
         self.root.title("Noten-Tool")
@@ -158,17 +162,34 @@ class NotenToolApp(ttk.Frame):
         ttk.Button(controls, text="Markierte Zeile löschen", command=self._delete_selected).pack(
             side="left", padx=8
         )
+        ttk.Button(controls, text="Array ausgeben", command=self._print_array).pack(side="left")
+        ttk.Button(controls, text="Speichern", command=self._save_data).pack(side="left", padx=8)
+
+        notes_frame = ttk.Frame(self.root)
+        notes_frame.pack(fill="x", padx=12, pady=(0, 12))
+        ttk.Label(notes_frame, text="Notizen").pack(side="left")
+        ttk.Entry(notes_frame).pack(side="left", fill="x", expand=True, padx=6, ipady=12)
 
     def _on_select_row(self, index: int) -> None:
         self.selected_var.set(index)
 
-    def _add_row(self) -> None:
+    def _add_row(self, data: Optional[list] = None) -> None:
         row = GradeRowUI(
             self.rows_container,
             index=len(self.rows),
             selected_var=self.selected_var,
             on_select=self._on_select_row,
         )
+        if data:
+            # data format: ["Subject", m1, m2, s1, s2]
+            row.subject_var.set(data[0])
+            # Helper to convert None/float to string
+            to_str = lambda x: str(x) if x is not None else ""
+            row.m1_var.set(to_str(data[1]))
+            row.m2_var.set(to_str(data[2]))
+            row.s1_var.set(to_str(data[3]))
+            row.s2_var.set(to_str(data[4]))
+
         self.rows.append(row)
         self._regrid_rows()
 
@@ -180,6 +201,7 @@ class NotenToolApp(ttk.Frame):
         self.rows[index].destroy()
         del self.rows[index]
         self.selected_var.set(-1)
+        self._save_data()
 
         for i, r in enumerate(self.rows):
             r.set_index(i)
@@ -194,6 +216,45 @@ class NotenToolApp(ttk.Frame):
             row.grid(i)
 
         self.rows_container.columnconfigure(0, weight=1)
+
+    def _print_array(self) -> None:
+        data = []
+        for row in self.rows:
+            data.append([
+                row.subject_var.get(),
+                row.model.mNote[0],
+                row.model.mNote[1],
+                row.model.sNote[0],
+                row.model.sNote[1],
+            ])
+        print(data)
+
+    def _save_data(self) -> None:
+        data = []
+        for row in self.rows:
+            data.append([
+                row.subject_var.get(),
+                row.model.mNote[0],
+                row.model.mNote[1],
+                row.model.sNote[0],
+                row.model.sNote[1],
+            ])
+        try:
+            with open("noten.txt", "w", encoding="utf-8") as f:
+                json.dump(data, f)
+        except Exception as e:
+            print(f"Fehler beim Speichern: {e}")
+
+    def _load_data(self) -> None:
+        if not os.path.exists("noten.txt"):
+            return
+        try:
+            with open("noten.txt", "r", encoding="utf-8") as f:
+                data = json.load(f)
+            for row_data in data:
+                self._add_row(row_data)
+        except Exception as e:
+            print(f"Fehler beim Laden: {e}")
 
 
 def main() -> None:
