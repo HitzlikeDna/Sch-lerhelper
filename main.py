@@ -1,9 +1,12 @@
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Optional, Callable
 import json
 import os
+import calendar
+import datetime
 
 import tkinter as tk
 from tkinter import ttk
@@ -69,12 +72,10 @@ class GradeRowUI:
         )
 
         self.subject_entry = ttk.Entry(self.row_frame, textvariable=self.subject_var, width=22)
-
         self.m1_entry = ttk.Entry(self.row_frame, textvariable=self.m1_var, width=10)
         self.m2_entry = ttk.Entry(self.row_frame, textvariable=self.m2_var, width=10)
         self.s1_entry = ttk.Entry(self.row_frame, textvariable=self.s1_var, width=10)
         self.s2_entry = ttk.Entry(self.row_frame, textvariable=self.s2_var, width=10)
-
         self.g_label = ttk.Label(self.row_frame, textvariable=self.g_var, width=10, anchor="center")
 
         self.sel_btn.grid(row=0, column=0, padx=(2, 6), pady=2, sticky="w")
@@ -97,7 +98,6 @@ class GradeRowUI:
 
     def grid(self, row: int) -> None:
         self.row_frame.grid(row=row, column=0, sticky="ew")
-        self.row_frame.columnconfigure(1, weight=1)
 
     def destroy(self) -> None:
         self.row_frame.destroy()
@@ -132,112 +132,24 @@ class NotenToolApp(ttk.Frame):
         super().__init__(root)
         self.root = root
 
+        self.filename = "Hausaufgaben.txt"
+
         self._loading = False
         self.selected_var = tk.IntVar(value=-1)
         self.rows: list[GradeRowUI] = []
 
         self._build_ui()
         self._load_data()
+
         if not self.rows:
             self._add_row()
 
-    def _build_ui(self) -> None:
-        self.root.title("Noten-Tool")
-        self.root.minsize(820, 420)
-
-        header = ttk.Frame(self.root)
-        header.pack(fill="x", padx=12, pady=(12, 6))
-
-        ttk.Label(header, text="").grid(row=0, column=0, padx=(2, 6), sticky="w")
-        ttk.Label(header, text="Fach").grid(row=0, column=1, padx=6, sticky="w")
-        ttk.Label(header, text="mNote 1", width=10, anchor="center").grid(row=0, column=2, padx=6)
-        ttk.Label(header, text="mNote 2", width=10, anchor="center").grid(row=0, column=3, padx=6)
-        ttk.Label(header, text="sNote 1", width=10, anchor="center").grid(row=0, column=4, padx=6)
-        ttk.Label(header, text="sNote 2", width=10, anchor="center").grid(row=0, column=5, padx=6)
-        ttk.Label(header, text="gNote", width=10, anchor="center").grid(row=0, column=6, padx=6)
-
-        header.columnconfigure(1, weight=1)
-        self.rows_container = ttk.Frame(self.root)
-        self.rows_container.pack(fill="both", expand=True, padx=12, pady=(0, 8))
-        self.rows_container.columnconfigure(0, weight=1)
-
-        controls = ttk.Frame(self.root)
-        controls.pack(fill="x", padx=12, pady=(0, 12))
-
-        ttk.Button(controls, text="Zeile hinzufügen", command=self._add_row).pack(side="left")
-        ttk.Button(controls, text="Markierte Zeile löschen", command=self._delete_selected).pack(
-            side="left", padx=8
-        )
-        ttk.Button(controls, text="Array ausgeben", command=self._print_array).pack(side="left")
-
-        notes_frame = ttk.Frame(self.root)
-        notes_frame.pack(fill="x", padx=12, pady=(0, 12))
-        ttk.Label(notes_frame, text="Notizen").pack(side="left")
-        ttk.Entry(notes_frame).pack(side="left", fill="x", expand=True, padx=6, ipady=12)
-
-    def _on_select_row(self, index: int) -> None:
-        self.selected_var.set(index)
-
-    def _add_row(self, data: Optional[list] = None) -> None:
-        row = GradeRowUI(
-            self.rows_container,
-            index=len(self.rows),
-            selected_var=self.selected_var,
-            on_select=self._on_select_row,
-            on_change=self._save_data,
-        )
-        if data:
-            # data format: ["Subject", m1, m2, s1, s2]
-            row.subject_var.set(data[0])
-            # Helper to convert None/float to string
-            to_str = lambda x: str(x) if x is not None else ""
-            row.m1_var.set(to_str(data[1]))
-            row.m2_var.set(to_str(data[2]))
-            row.s1_var.set(to_str(data[3]))
-            row.s2_var.set(to_str(data[4]))
-
-        self.rows.append(row)
-        self._regrid_rows()
-
-    def _delete_selected(self) -> None:
-        index = self.selected_var.get()
-        if not (0 <= index < len(self.rows)):
-            return
-
-        self.rows[index].destroy()
-        del self.rows[index]
-        self.selected_var.set(-1)
-        self._save_data()
-
-        for i, r in enumerate(self.rows):
-            r.set_index(i)
-
-        self._regrid_rows()
-
-    def _regrid_rows(self) -> None:
-        for widget in self.rows_container.winfo_children():
-            widget.grid_forget()
-
-        for i, row in enumerate(self.rows):
-            row.grid(i)
-
-        self.rows_container.columnconfigure(0, weight=1)
-
-    def _print_array(self) -> None:
-        data = []
-        for row in self.rows:
-            data.append([
-                row.subject_var.get(),
-                row.model.mNote[0],
-                row.model.mNote[1],
-                row.model.sNote[0],
-                row.model.sNote[1],
-            ])
-        print(data)
+    # ================= NOTEN SPEICHERN =================
 
     def _save_data(self) -> None:
         if self._loading:
             return
+
         data = []
         for row in self.rows:
             data.append([
@@ -247,26 +159,66 @@ class NotenToolApp(ttk.Frame):
                 row.model.sNote[0],
                 row.model.sNote[1],
             ])
-        try:
-            with open("noten.txt", "w", encoding="utf-8") as f:
-                json.dump(data, f)
-        except Exception as e:
-            print(f"Fehler beim Speichern: {e}")
+
+        with open("noten.txt", "w", encoding="utf-8") as f:
+            json.dump(data, f)
 
     def _load_data(self) -> None:
         if not os.path.exists("noten.txt"):
             return
-        self._loading = True
-        try:
-            with open("noten.txt", "r", encoding="utf-8") as f:
-                data = json.load(f)
-            for row_data in data:
-                self._add_row(row_data)
-        except Exception as e:
-            print(f"Fehler beim Laden: {e}")
-        finally:
-            self._loading = False
 
+        self._loading = True
+        with open("noten.txt", "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        for row_data in data:
+            self._add_row(row_data)
+
+        self._loading = False
+
+    # ================= HAUSAUFGABEN =================
+
+    def load_notes(self):
+        if os.path.exists(self.filename):
+            with open(self.filename, "r", encoding="utf-8") as f:
+                try:
+                    return json.load(f)
+                except:
+                    return {}
+        return {}
+
+    def save_Hausaufgaben(self):
+        with open(self.filename, "w", encoding="utf-8") as f:
+            json.dump(self.notes, f, indent=4)
+
+    def open_note_popup(self, day):
+        popup = tk.Toplevel(self.root)
+        popup.title(f"Notiz für {day}.{self.current_month}.{self.current_year}")
+        popup.geometry("300x250")
+
+        key = (self.current_year, self.current_month, day)
+
+        text = tk.Text(popup, height=10)
+        text.pack(padx=10, pady=10, fill="both", expand=True)
+
+        if key in self.notes:
+            text.insert("1.0", self.notes[key])
+
+        def save_note():
+            content = text.get("1.0", "end").strip()
+
+            if content:
+                self.notes[key] = content
+            elif key in self.notes:
+                del self.notes[key]
+
+            self.save_Hausaufgaben()
+            popup.destroy()
+            self.update_calendar()
+
+        ttk.Button(popup, text="Speichern", command=save_note).pack(pady=5)
+
+    # ================= START =================
 
 def main() -> None:
     root = tk.Tk()
