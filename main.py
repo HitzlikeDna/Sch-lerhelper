@@ -139,6 +139,16 @@ class NotenToolApp(ttk.Frame):
         self.homework_filename = "Hausaufgaben.txt"
 
         # --- Grades Data ---
+        self.style = ttk.Style()
+        self.is_dark = False
+        self.colors = {
+            "light": {
+                "bg": "#d9d9d9", "fg": "black", "input_bg": "white", "text_insert": "black"
+            },
+            "dark": {
+                "bg": "#2d2d2d", "fg": "white", "input_bg": "#404040", "text_insert": "white"
+            }
+        }
         self._loading = False
         self.selected_var = tk.IntVar(value=-1)
         self.rows: list[GradeRowUI] = []
@@ -157,7 +167,38 @@ class NotenToolApp(ttk.Frame):
 
         self._update_total_average()
 
+    def _toggle_dark_mode(self) -> None:
+        self.is_dark = not self.is_dark
+        mode = "dark" if self.is_dark else "light"
+        c = self.colors[mode]
+
+        self.theme_btn.configure(text="Light Mode" if self.is_dark else "Dark Mode")
+
+        # Configure Styles
+        self.style.configure(".", background=c["bg"], foreground=c["fg"], fieldbackground=c["input_bg"])
+        self.style.configure("TLabel", background=c["bg"], foreground=c["fg"])
+        self.style.configure("TButton", background=c["bg"], foreground=c["fg"])
+        self.style.configure("TEntry", fieldbackground=c["input_bg"], foreground=c["fg"])
+        self.style.configure("TRadiobutton", background=c["bg"], foreground=c["fg"])
+        self.style.configure("TLabelframe", background=c["bg"], foreground=c["fg"])
+        self.style.configure("TLabelframe.Label", background=c["bg"], foreground=c["fg"])
+        self.style.configure("TNotebook", background=c["bg"])
+        self.style.configure("TNotebook.Tab", background=c["bg"], foreground=c["fg"])
+        
+        # Update specific widgets
+        self.root.configure(bg=c["bg"])
+        if hasattr(self, "hw_canvas"):
+            self.hw_canvas.configure(bg=c["bg"])
+        
+        self._refresh_infos_tab()
+        self.update_calendar()
+
     def _build_ui(self) -> None:
+        top_frame = ttk.Frame(self)
+        top_frame.pack(side="top", fill="x", padx=10, pady=5)
+        self.theme_btn = ttk.Button(top_frame, text="Dark Mode", command=self._toggle_dark_mode)
+        self.theme_btn.pack(side="right")
+
         self.notebook = ttk.Notebook(self)
         self.notebook.pack(pady=10, padx=10, fill="both", expand=True)
 
@@ -224,21 +265,27 @@ class NotenToolApp(ttk.Frame):
             if key in self.notes:
                 found_hw = True
                 is_important = i < 3
-                fg = "red" if is_important else "black"
+                fg_color = "red" if is_important else ""
                 font = ("TkDefaultFont", 9, "bold") if is_important else ("TkDefaultFont", 9)
                 
                 f = ttk.Frame(self.hw_scrollable_frame)
                 f.pack(fill="x", padx=5, pady=2)
                 date_str = day.strftime("%d.%m.%Y")
-                tk.Label(f, text=f"{date_str}:", fg=fg, font=font, anchor="w").pack(side="top", fill="x")
-                tk.Label(f, text=f"{self.notes[key]}", fg=fg, font=font, wraplength=250, justify="left", anchor="w").pack(side="top", fill="x", expand=True)
+                ttk.Label(f, text=f"{date_str}:", foreground=fg_color, font=font, anchor="w").pack(side="top", fill="x")
+                ttk.Label(f, text=f"{self.notes[key]}", foreground=fg_color, font=font, wraplength=250, justify="left", anchor="w").pack(side="top", fill="x", expand=True)
 
         if not found_hw:
             ttk.Label(self.hw_scrollable_frame, text="Keine Hausaufgaben in den nächsten 7 Tagen.").pack(padx=5, pady=5)
 
         # Noten
+        valid_grades = [row.model.gNote for row in self.rows if row.model.gNote is not None]
+        header_avg_text = "Ø"
+        if valid_grades:
+            total_avg = sum(valid_grades) / len(valid_grades)
+            header_avg_text += f" {total_avg:.2f}"
+
         ttk.Label(self.info_grades_container, text="Fach", font=("TkDefaultFont", 9, "bold")).grid(row=0, column=0, sticky="w", padx=5, pady=5)
-        ttk.Label(self.info_grades_container, text="Ø", font=("TkDefaultFont", 9, "bold")).grid(row=0, column=1, sticky="e", padx=5, pady=5)
+        ttk.Label(self.info_grades_container, text=header_avg_text, font=("TkDefaultFont", 9, "bold")).grid(row=0, column=1, sticky="e", padx=5, pady=5)
         
         r = 1
         for row in self.rows:
@@ -407,9 +454,13 @@ class NotenToolApp(ttk.Frame):
         popup.title(f"Notiz für {day}.{self.current_month}.{self.current_year}")
         popup.geometry("300x250")
 
+        mode = "dark" if self.is_dark else "light"
+        c = self.colors[mode]
+        popup.configure(bg=c["bg"])
+
         key = (self.current_year, self.current_month, day)
 
-        text = tk.Text(popup, height=10, wrap="word")
+        text = tk.Text(popup, height=10, wrap="word", bg=c["input_bg"], fg=c["fg"], insertbackground=c["text_insert"])
         text.pack(padx=10, pady=10, fill="both", expand=True)
 
         text.insert("1.0", self.notes.get(key, ""))
