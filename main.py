@@ -32,7 +32,7 @@ class GradeRowModel:
     sNote: list[Optional[float]]
     gNote: Optional[float]
 
-
+# UI
 class GradeRowUI:
     def __init__(
         self,
@@ -134,11 +134,11 @@ class NotenToolApp(ttk.Frame):
         self.root = root
         self.root.title("Schüler-Helfer")
 
-        # --- Data File Paths ---
+        # File Paths
         self.grades_filename = "noten.txt"
         self.homework_filename = "Hausaufgaben.txt"
 
-        # --- Grades Data ---
+        # Noten Data
         self.style = ttk.Style()
         self.is_dark = False
         self.colors = {
@@ -153,7 +153,7 @@ class NotenToolApp(ttk.Frame):
         self.selected_var = tk.IntVar(value=-1)
         self.rows: list[GradeRowUI] = []
 
-        # --- Homework Data ---
+        # Homework Data
         self.notes = self.load_notes()
         today = datetime.date.today()
         self.current_year = today.year
@@ -174,7 +174,7 @@ class NotenToolApp(ttk.Frame):
 
         self.theme_btn.configure(text="Light Mode" if self.is_dark else "Dark Mode")
 
-        # Configure Styles
+        # Styles
         self.style.configure(".", background=c["bg"], foreground=c["fg"], fieldbackground=c["input_bg"])
         self.style.configure("TLabel", background=c["bg"], foreground=c["fg"])
         self.style.configure("TButton", background=c["bg"], foreground=c["fg"])
@@ -185,7 +185,7 @@ class NotenToolApp(ttk.Frame):
         self.style.configure("TNotebook", background=c["bg"])
         self.style.configure("TNotebook.Tab", background=c["bg"], foreground=c["fg"])
         
-        # Update specific widgets
+        # Update
         self.root.configure(bg=c["bg"])
         if hasattr(self, "hw_canvas"):
             self.hw_canvas.configure(bg=c["bg"])
@@ -300,11 +300,11 @@ class NotenToolApp(ttk.Frame):
         self.info_grades_container.columnconfigure(0, weight=1)
 
     def _build_grades_tab(self, parent: ttk.Frame) -> None:
-        # Rows container
+        # Rows
         self.rows_frame = ttk.Frame(parent)
         self.rows_frame.pack(fill="both", expand=True, padx=10)
 
-        # Header inside rows_frame
+        # Header 
         ttk.Label(self.rows_frame, text="Fach", width=24, anchor="w").grid(row=0, column=1, padx=6, sticky="ew")
         ttk.Label(self.rows_frame, text="Mündlich 1").grid(row=0, column=2, padx=6)
         ttk.Label(self.rows_frame, text="Mündlich 2").grid(row=0, column=3, padx=6)
@@ -330,7 +330,7 @@ class NotenToolApp(ttk.Frame):
         ttk.Label(avg_frame, text="Gesamtdurchschnitt:").pack(side="left")
         ttk.Label(avg_frame, textvariable=self.avg_g_var, font=("TkDefaultFont", 9, "bold")).pack(side="left")
 
-    # ================= NOTEN SPEICHERN =================
+    # NOTEN SPEICHERN
 
     def _save_data(self) -> None:
         if self._loading:
@@ -359,7 +359,6 @@ class NotenToolApp(ttk.Frame):
             for row_data in data:
                 self._add_row(row_data)
         except (json.JSONDecodeError, IOError):
-            # Handle file corruption or read errors
             pass
         self._loading = False
         self._refresh_infos_tab()
@@ -402,7 +401,7 @@ class NotenToolApp(ttk.Frame):
         self._on_row_change()
 
     def _on_row_select(self, index: int) -> None:
-        pass  # Can be used for highlighting or other features
+        pass
 
     def _on_row_change(self) -> None:
         self._update_total_average()
@@ -416,7 +415,7 @@ class NotenToolApp(ttk.Frame):
         else:
             self.avg_g_var.set("")
 
-    # ================= HAUSAUFGABEN =================
+    # HAUSAUFGABEN
 
     def _build_homework_tab(self, parent: ttk.Frame) -> None:
         nav_frame = ttk.Frame(parent)
@@ -437,14 +436,12 @@ class NotenToolApp(ttk.Frame):
             try:
                 with open(self.homework_filename, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                    # JSON stringifies tuple keys, so we need to convert them back
                     return {eval(k): v for k, v in data.items()}
             except (json.JSONDecodeError, SyntaxError, IOError):
                 return {}
         return {}
 
     def save_Hausaufgaben(self) -> None:
-        # JSON requires string keys
         data_to_save = {str(k): v for k, v in self.notes.items()}
         with open(self.homework_filename, "w", encoding="utf-8") as f:
             json.dump(data_to_save, f, indent=4)
@@ -535,7 +532,7 @@ def main() -> None:
     except tk.TclError:
         pass
 
-    # Style for calendar days with notes
+    # Style calendar
     style.configure("Accent.TButton", foreground="blue")
 
     app = NotenToolApp(root)
